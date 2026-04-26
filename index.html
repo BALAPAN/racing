@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formula GP - High Speed Velocity</title>
+    <style>
+        :root {
+            --apple-green: #8db600;
+            --track-border: #3d4d00;
+            --gold: #facc15;
+            --racing-red: #ef4444;
+            --ui-bg: #0a0a0a;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #eee;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Setup UI */
+        #setup-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
+            z-index: 3000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .setup-card {
+            background: var(--ui-bg);
+            padding: 30px;
+            border-radius: 20px;
+            border: 2px solid var(--apple-green);
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(141, 182, 0, 0.3);
+        }
+
+        .setup-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 20px 0;
+        }
+
+        input, select {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, var(--apple-green), #5a7500);
+            color: #000;
+            border: none;
+            padding: 15px 45px;
+            font-weight: 900;
+            font-size: 1.2rem;
+            border-radius: 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: 0.3s;
+        }
+
+        /* Racing Area */
+        .header {
+            background: #050505;
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 4px solid var(--apple-green);
+        }
+
+        .timer {
+            font-family: monospace;
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: var(--apple-green);
+        }
+
+        .race-track {
+            position: relative;
+            flex-grow: 1;
+            background-color: var(--apple-green);
+            border: 12px solid var(--track-border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .lane {
+            flex: 1;
+            position: relative;
+            border-bottom: 2px dashed rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Moving Road Effect */
+        .road-texture {
+            position: absolute;
+            top: 0; left: 0; width: 200%; height: 100%;
+            background-image: linear-gradient(90deg, 
+                transparent 0%, transparent 45%, 
+                rgba(255, 255, 255, 0.2) 45%, rgba(255, 255, 255, 0.2) 55%, 
+                transparent 55%, transparent 100%);
+            background-size: 100px 100%;
+            pointer-events: none;
+        }
+
+        /* Speed Streaks */
+        .speed-streak {
+            position: absolute;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .car-container {
+            position: absolute;
+            left: 10px;
+            width: 140px;
+            height: 50px;
+            will-change: transform;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .car-name {
+            font-size: 11px;
+            font-weight: 900;
+            color: white;
+            background: rgba(0,0,0,0.8);
+            padding: 2px 8px;
+            border-radius: 4px;
+            width: fit-content;
+            margin-bottom: 4px;
+        }
+
+        /* Wheel Spin Animation */
+        @keyframes wheel-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .spinning {
+            animation: wheel-spin 0.1s linear infinite;
+            transform-origin: center;
+        }
+
+        #finish-line {
+            position: absolute;
+            right: -300px;
+            top: 0; bottom: 0; width: 100px;
+            background: repeating-conic-gradient(#fff 0% 25%, #000 0% 50%) 50% / 25px 25px;
+            border-left: 5px solid gold;
+            display: none;
+            z-index: 5;
+        }
+
+        .show-finish { display: block !important; animation: slide-in 1.2s forwards; }
+        @keyframes slide-in { from { right: -300px; } to { right: 200%; } }
+
+        .overlay {
+            position: absolute;
+            top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
+            font-size: 5rem; font-weight: 900; z-index: 100;
+            color: white; text-shadow: 0 0 20px #000; transition: 0.4s;
+        }
+        .overlay.active { transform: translate(-50%, -50%) scale(1); }
+
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); display: none; align-items: center; justify-content: center; z-index: 4000;
+        }
+        .modal-content { background: #111; padding: 40px; border-radius: 20px; text-align: center; border: 2px solid var(--apple-green); }
+    </style>
+</head>
+<body>
+
+    <div id="setup-screen">
+        <div class="setup-card">
+            <h1 style="color: var(--apple-green);">VELOCITY GP</h1>
+            <div style="text-align: left; margin-bottom: 5px; font-size: 0.8rem; color:#888;">AUDIO:</div>
+            <select id="music-type">
+                <option value="none">Tanpa Musik</option>
+                <option value="rock">High Voltage Rock</option>
+                <option value="techno">Turbo Techno</option>
+                <option value="chill">Chill Drive</option>
+            </select>
+            <div class="setup-grid" id="driver-list"></div>
+            <button class="btn-start" onclick="startRace()">START RACE</button>
+        </div>
+    </div>
+
+    <div id="msg-go" class="overlay">GO!</div>
+    <div id="msg-mid" class="overlay" style="color: var(--gold); font-size: 3rem;">SPEED BATTLE!</div>
+
+    <div class="header">
+        <div style="font-weight: 900;">APPLE GREEN CIRCUIT</div>
+        <div id="timer" class="timer">120.00</div>
+    </div>
+
+    <div class="race-track" id="track">
+        <div id="finish-line"></div>
+        <div id="lanes-wrapper" style="height: 100%; display: flex; flex-direction: column;"></div>
+    </div>
+
+    <div id="result-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="color: var(--apple-green);">PODIUM</h2>
+            <div id="final-rank" style="text-align: left; margin: 20px 0;"></div>
+            <button class="btn-start" onclick="location.reload()">REMATCH</button>
+        </div>
+    </div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const defaultNames = ["Hamilton", "Verstappen", "Leclerc", "Norris", "Alonso", "Sainz", "Perez", "Russell"];
+        const teamColors = [
+            {p: "#00f2ff", s: "#fff"}, {p: "#ff0055", s: "#ffd500"},
+            {p: "#ff8800", s: "#000"}, {p: "#7d00ff", s: "#00ffcc"},
+            {p: "#ffffff", s: "#ff0000"}, {p: "#eeff00", s: "#000"},
+            {p: "#00ff44", s: "#fff"}, {p: "#3d5afe", s: "#f0f"}
+        ];
+        
+        const listDiv = document.getElementById('driver-list');
+        defaultNames.forEach((name, i) => {
+            listDiv.innerHTML += `<div><input type="text" id="name-${i}" value="${name}"></div>`;
+        });
+
+        let cars = [];
+        let isRacing = false;
+        let startTime;
+        let isLocked = false;
+        const raceTime = 120;
+        const lockTime = 110;
+
+        function playSynth(freq, type, dur, vol) {
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            g.gain.setValueAtTime(vol, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+            osc.connect(g);
+            g.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + dur);
+        }
+
+        function createSpeedStreak(laneEl) {
+            const streak = document.createElement('div');
+            streak.className = 'speed-streak';
+            streak.style.width = (Math.random() * 150 + 50) + 'px';
+            streak.style.top = (Math.random() * 100) + '%';
+            streak.style.right = '-200px';
+            laneEl.appendChild(streak);
+
+            let x = -200;
+            const anim = () => {
+                x += 35; // Kecepatan streak
+                streak.style.right = x + 'px';
+                if(x < window.innerWidth + 300) requestAnimationFrame(anim);
+                else streak.remove();
+            };
+            anim();
+        }
+
+        function startRace() {
+            document.getElementById('setup-screen').style.display = 'none';
+            const mType = document.getElementById('music-type').value;
+            const wrapper = document.getElementById('lanes-wrapper');
+            const rankingOrder = Array.from({length: 8}, (_, i) => i).sort(() => Math.random() - 0.5);
+
+            for (let i = 0; i < 8; i++) {
+                const name = document.getElementById(`name-${i}`).value || `Driver ${i+1}`;
+                const lane = document.createElement('div');
+                lane.className = 'lane';
+                
+                const road = document.createElement('div');
+                road.className = 'road-texture';
+                lane.appendChild(road);
+
+                const container = document.createElement('div');
+                container.className = 'car-container';
+                const team = teamColors[i];
+                
+                container.innerHTML = `
+                    <div class="car-name" style="border-left: 3px solid ${team.p}">${name}</div>
+                    <svg viewBox="0 0 140 50" width="120" height="40">
+                        <g class="wheels">
+                            <rect class="spinning" x="95" y="2" width="28" height="10" fill="#111" rx="2"/>
+                            <rect class="spinning" x="95" y="38" width="28" height="10" fill="#111" rx="2"/>
+                            <rect class="spinning" x="25" y="5" width="22" height="8" fill="#111" rx="2"/>
+                            <rect class="spinning" x="25" y="37" width="22" height="8" fill="#111" rx="2"/>
+                        </g>
+                        <rect x="120" y="8" width="8" height="34" fill="${team.s}"/>
+                        <path d="M10 25 L30 12 L90 10 L115 15 L115 35 L90 40 L30 38 Z" fill="${team.p}"/>
+                        <ellipse cx="70" cy="25" rx="15" ry="6" fill="#111" stroke="${team.s}" stroke-width="1"/>
+                        <rect x="0" y="15" width="20" height="20" fill="${team.s}"/>
+                    </svg>
+                `;
+                lane.appendChild(container);
+                wrapper.appendChild(lane);
+
+                cars.push({
+                    el: container, road: road, laneEl: lane, name: name, color: team.p,
+                    target: raceTime + (rankingOrder[i] * 0.45),
+                    x: 10, boost: 0, roadOffset: 0,
+                    points: Array.from({length: 12}, () => 20 + Math.random() * 80),
+                    finished: false
+                });
+            }
+
+            let cd = 3;
+            const timerInt = setInterval(() => {
+                if (cd > 0) { playSynth(330, 'sine', 0.1, 0.1); cd--; } 
+                else {
+                    clearInterval(timerInt);
+                    document.getElementById('msg-go').classList.add('active');
+                    playSynth(660, 'sine', 0.6, 0.2);
+                    setTimeout(() => {
+                        document.getElementById('msg-go').classList.remove('active');
+                        startTime = performance.now();
+                        isRacing = true;
+                        requestAnimationFrame(update);
+                    }, 800);
+                }
+            }, 1000);
+        }
+
+        function update(now) {
+            if (!isRacing) return;
+            const elapsed = (now - startTime) / 1000;
+            document.getElementById('timer').innerText = Math.max(0, raceTime - elapsed).toFixed(2);
+            const trackWidth = document.getElementById('track').clientWidth - 130;
+
+            if (elapsed >= 90 && elapsed < 91) document.getElementById('msg-mid').classList.add('active');
+            if (elapsed > 94) document.getElementById('msg-mid').classList.remove('active');
+            if (elapsed >= lockTime) isLocked = true;
+            if (elapsed >= raceTime - 1.5) document.getElementById('finish-line').classList.add('show-finish');
+
+            cars.forEach(car => {
+                if (car.finished) return;
+
+                const ratio = elapsed / car.target;
+                let progress = Math.pow(ratio, 1.6);
+                let targetX = progress * trackWidth;
+
+                if (!isLocked) {
+                    car.points.forEach((p, idx) => {
+                        if (elapsed > p) car.boost = Math.max(car.boost, (elapsed - p) * 0.35 + (idx * 1.4));
+                    });
+                }
+
+                let finalX = targetX + car.boost;
+                if (finalX > car.x) car.x = finalX;
+
+                // Efek Jalan Cepat: Kecepatan tekstur aspal meningkat seiring ratio
+                let speedMult = (ratio * 60) + 5;
+                car.roadOffset -= speedMult;
+                car.road.style.transform = `translateX(${car.roadOffset % 100}px)`;
+
+                // Speed Streaks acak berdasarkan kecepatan
+                if(Math.random() < ratio * 0.3) createSpeedStreak(car.laneEl);
+
+                // Sedikit vibrasi saat cepat
+                let shake = ratio > 0.8 ? (Math.random() - 0.5) * 2 : 0;
+
+                if (ratio >= 1) {
+                    car.finished = true;
+                    car.x = trackWidth;
+                    car.clock = elapsed.toFixed(3);
+                }
+                car.el.style.transform = `translateX(${car.x}px) translateY(${shake}px)`;
+            });
+
+            if (cars.every(c => c.finished)) {
+                isRacing = false;
+                setTimeout(showResults, 1000);
+            } else {
+                requestAnimationFrame(update);
+            }
+        }
+
+        function showResults() {
+            const sorted = [...cars].sort((a, b) => a.clock - b.clock);
+            document.getElementById('final-rank').innerHTML = sorted.map((c, i) => `
+                <div style="padding:10px; border-bottom:1px solid #333; display:flex; justify-content:space-between;">
+                    <span>${i+1}. <b style="color:${c.color}">${c.name}</b></span>
+                    <span>${c.clock}s</span>
+                </div>
+            `).join('');
+            document.getElementById('result-modal').style.display = 'flex';
+        }
+    </script>
+</body>
+</html>
